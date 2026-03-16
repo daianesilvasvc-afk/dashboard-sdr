@@ -5,7 +5,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3000;
-const API_TOKEN = process.env.PIPEDRIVE_TOKEN || 'b05fec1a056e3d1933d6b730e0435154835e6db1';
+const API_TOKEN = process.env.PIPEDRIVE_TOKEN || '';
 
 const SDR_IDS = {
   25471514: 'Edrius Vieira',
@@ -52,40 +52,59 @@ function norm(s) {
 }
 
 function processActivities(acts) {
-  const ACT_AGENDADO   = '[sdr] reuniao agendada';
-  const ACT_REALIZADAS = ['[closer] reuniao realizada', '[closer] 2o realizada', '[sdr] venda feita pelo sdr'];
-  const ACT_NOSHOW     = ['[sdr] no show', '[sdr] no show por falta de retorno'];
-  const ACT_CANCELOU   = ['[sdr] lead cancelou a reuniao'];
-  const ACT_VENDA      = '[sdr] venda feita pelo sdr';
-  const ACT_REAGEND    = ['[closer] reagendamento', '[closer] reagendamento [lead nao consegue realizar 1h de call]', '[sdr] reagendamento / atraso do closer (nao sera atendido no mesmo dia)'];
-
+  // Comparação flexível — pega qualquer atividade dos SDRs e loga os subjects únicos
   const map = {};
   Object.entries(SDR_IDS).forEach(([id, name]) => {
     map[id] = { name, agendados: 0, realizados: 0, noshows: 0, cancelados: 0, vendas: 0, reagend: 0 };
   });
 
+  // Subjects únicos dos SDRs para debug
+  const sdrSubjects = new Set();
+
   acts.forEach(a => {
     const sdr = map[a.user_id];
     if (!sdr) return;
+    if (a.subject) sdrSubjects.add(a.subject);
+
     const s = norm(a.subject);
-    if (s === ACT_AGENDADO)              sdr.agendados++;
-    if (ACT_REALIZADAS.some(x => s === norm(x))) sdr.realizados++;
-    if (ACT_NOSHOW.some(x => s === norm(x)))     sdr.noshows++;
-    if (ACT_CANCELOU.some(x => s === norm(x)))   sdr.cancelados++;
-    if (s === ACT_VENDA)                 sdr.vendas++;
-    if (ACT_REAGEND.some(x => s === norm(x)))    sdr.reagend++;
+
+    // AGENDAMENTOS
+    if (s.includes('reuniao agendada') || s.includes('reuni') && s.includes('agend')) sdr.agendados++;
+
+    // REALIZADAS
+    if (
+      (s.includes('reuniao realizada') || s.includes('reuni') && s.includes('realiz')) ||
+      s.includes('2o realizada') || s.includes('2º realizada') ||
+      (s.includes('venda') && s.includes('sdr'))
+    ) sdr.realizados++;
+
+    // NO-SHOW
+    if (s.includes('no show') || s.includes('noshow') || s.includes('no-show')) sdr.noshows++;
+
+    // CANCELAMENTOS
+    if (s.includes('cancelou') || s.includes('cancelad')) sdr.cancelados++;
+
+    // VENDAS
+    if (s.includes('venda') && s.includes('sdr')) sdr.vendas++;
+
+    // REAGENDAMENTOS
+    if (s.includes('reagendamento') || s.includes('reagend')) sdr.reagend++;
   });
 
-  return Object.values(map);
+  console.log('=== SUBJECTS DOS SDRs ===');
+  [...sdrSubjects].sort().forEach(s => console.log(s));
+  console.log('=========================');
+
+  return { sdrs: Object.values(map), sdrSubjects: [...sdrSubjects].sort() };
 }
 
 async function handleApi(req, res, parsedUrl) {
   const days = parseInt(parsedUrl.query.days) || 30;
   try {
     const acts = await fetchAllActivities(days);
-    const sdrs = processActivities(acts);
+    const { sdrs, sdrSubjects } = processActivities(acts);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify({ sdrs, total_acts: acts.length, updated: new Date().toISOString() }));
+    res.end(JSON.stringify({ sdrs, total_acts: acts.length, sdr_subjects: sdrSubjects, updated: new Date().toISOString() }));
   } catch(e) {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: e.message }));
