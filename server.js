@@ -51,60 +51,73 @@ function norm(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
 
-function processActivities(acts) {
-  // Comparação flexível — pega qualquer atividade dos SDRs e loga os subjects únicos
+function processActivities(acts, users) {
+  const userMap = {};
+  users.forEach(u => { userMap[u.id] = u.name; });
+
+  const sdrIdSet = new Set(Object.keys(SDR_IDS).map(Number));
+
   const map = {};
   Object.entries(SDR_IDS).forEach(([id, name]) => {
     map[id] = { name, agendados: 0, realizados: 0, noshows: 0, cancelados: 0, vendas: 0, reagend: 0 };
   });
 
-  // Subjects únicos dos SDRs para debug
+  // Diagnóstico: quais campos têm IDs dos SDRs
+  const fieldHits = { user_id: 0, owner_id: 0, assigned_to_user_id: 0, created_by_user_id: 0 };
   const sdrSubjects = new Set();
 
   acts.forEach(a => {
-    const sdr = map[a.user_id];
+    // Testa todos os campos possíveis
+    const fields = {
+      user_id: a.user_id,
+      owner_id: a.owner_id,
+      assigned_to_user_id: a.assigned_to_user_id,
+      created_by_user_id: a.created_by_user_id,
+    };
+
+    Object.entries(fields).forEach(([field, val]) => {
+      if (val && sdrIdSet.has(val)) fieldHits[field]++;
+    });
+
+    // Usa o campo que tiver ID de SDR — prioridade: assigned > owner > user > created
+    const sdrId = (sdrIdSet.has(a.assigned_to_user_id) && a.assigned_to_user_id) ||
+                  (sdrIdSet.has(a.owner_id) && a.owner_id) ||
+                  (sdrIdSet.has(a.user_id) && a.user_id) ||
+                  (sdrIdSet.has(a.created_by_user_id) && a.created_by_user_id);
+
+    if (!sdrId) return;
+    const sdr = map[sdrId];
     if (!sdr) return;
+
     if (a.subject) sdrSubjects.add(a.subject);
 
     const s = norm(a.subject);
-
-    // AGENDAMENTOS
-    if (s.includes('reuniao agendada') || s.includes('reuni') && s.includes('agend')) sdr.agendados++;
-
-    // REALIZADAS
-    if (
-      (s.includes('reuniao realizada') || s.includes('reuni') && s.includes('realiz')) ||
-      s.includes('2o realizada') || s.includes('2º realizada') ||
-      (s.includes('venda') && s.includes('sdr'))
-    ) sdr.realizados++;
-
-    // NO-SHOW
-    if (s.includes('no show') || s.includes('noshow') || s.includes('no-show')) sdr.noshows++;
-
-    // CANCELAMENTOS
+    if (s.includes('reuniao agendada') || (s.includes('reuni') && s.includes('agend'))) sdr.agendados++;
+    if (s.includes('reuniao realizada') || s.includes('2o realizada') || s.includes('2a realizada') || (s.includes('venda') && s.includes('sdr'))) sdr.realizados++;
+    if (s.includes('no show') || s.includes('noshow')) sdr.noshows++;
     if (s.includes('cancelou') || s.includes('cancelad')) sdr.cancelados++;
-
-    // VENDAS
     if (s.includes('venda') && s.includes('sdr')) sdr.vendas++;
-
-    // REAGENDAMENTOS
     if (s.includes('reagendamento') || s.includes('reagend')) sdr.reagend++;
   });
 
-  console.log('=== SUBJECTS DOS SDRs ===');
-  [...sdrSubjects].sort().forEach(s => console.log(s));
-  console.log('=========================');
-
-  return { sdrs: Object.values(map), sdrSubjects: [...sdrSubjects].sort() };
+  return {
+    sdrs: Object.values(map),
+    field_hits: fieldHits,
+    sdr_subjects: [...sdrSubjects].sort().slice(0, 30),
+  };
 }
 
 async function handleApi(req, res, parsedUrl) {
   const days = parseInt(parsedUrl.query.days) || 30;
   try {
-    const acts = await fetchAllActivities(days);
-    const { sdrs, sdrSubjects } = processActivities(acts);
+    const [acts, usersData] = await Promise.all([
+      fetchAllActivities(days),
+      pipedriveGet('/users')
+    ]);
+    const users = usersData.data || [];
+    const { sdrs, field_hits, sdr_subjects } = processActivities(acts, users);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify({ sdrs, total_acts: acts.length, sdr_subjects: sdrSubjects, updated: new Date().toISOString() }));
+    res.end(JSON.stringify({ sdrs, total_acts: acts.length, field_hits, sdr_subjects, updated: new Date().toISOString() }));
   } catch(e) {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: e.message }));
