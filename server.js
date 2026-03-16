@@ -38,7 +38,7 @@ function fetchAllActivities(days) {
   var all = [];
   var start = 0;
   function fetchPage() {
-    return pipedriveGet('/activities?limit=500&start=' + start + '&start_date=' + since + '&sort=add_time+DESC')
+    return pipedriveGet('/activities?limit=500&start=' + start + '&start_date=' + since + '&sort=add_time+DESC&everyone=1')
       .then(function(d) {
         var acts = d.data || [];
         all = all.concat(acts);
