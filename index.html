@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard SDRs — Podium Educação</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:rgba(255,255,255,0.07);
+  --text:#f0f0f8;--text2:#8888aa;--text3:#555570;
+  --blue:#4f8ef7;--blue-dim:#1a2a4a;
+  --green:#22c55e;--green-dim:#0a2a18;
+  --amber:#f59e0b;--amber-dim:#2a1a00;
+  --red:#ef4444;--red-dim:#2a0a0a;
+  --purple:#a855f7;--purple-dim:#1a0a2a;
+  --r:10px;--rs:6px;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* HEADER */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;position:sticky;top:0;z-index:100;}
+.header-left{display:flex;align-items:center;gap:14px;}
+.logo{font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.12em;text-transform:uppercase;}
+.header-title{font-size:16px;font-weight:600;color:var(--text);}
+.header-sub{font-size:12px;color:var(--text2);margin-top:1px;}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.period-btns{display:flex;gap:6px;}
+.pbtn{padding:6px 14px;border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text2);background:transparent;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
+.pbtn:hover{border-color:var(--blue);color:var(--blue);}
+.pbtn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.update-info{font-size:11px;color:var(--text3);}
+
+/* LAYOUT */
+.dash{padding:1.5rem 2rem;max-width:1400px;margin:0 auto;}
+.slbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;}
+
+/* METRICS */
+.metrics-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:1.5rem;}
+.mc{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);padding:1.1rem 1.25rem;}
+.mc-lbl{font-size:11px;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;}
+.mc-val{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;line-height:1;}
+.mc-sub{font-size:11px;color:var(--text3);margin-top:6px;}
+.mc-prog{height:3px;background:var(--surface2);border-radius:2px;margin-top:10px;overflow:hidden;}
+.mc-prog-fill{height:100%;border-radius:2px;transition:width .8s ease;}
+
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;}
+.cc{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);padding:1.25rem;}
+
+/* RANKING */
+.rank-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;}
+.rank-list{display:flex;flex-direction:column;gap:4px;}
+.rank-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--rs);background:var(--surface2);border:1px solid var(--border);transition:border-color .15s;}
+.rank-item:hover{border-color:var(--blue);}
+.rank-num{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--text3);width:22px;text-align:center;flex-shrink:0;}
+.rank-num.gold{color:#f59e0b;}
+.rank-num.silver{color:#94a3b8;}
+.rank-num.bronze{color:#cd7c54;}
+.rank-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
+.rank-name{font-size:13px;font-weight:500;flex:1;color:var(--text);}
+.rank-sub{font-size:11px;color:var(--text2);}
+.rank-right{text-align:right;flex-shrink:0;}
+.rank-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--blue);}
+.rank-bar-wrap{margin-top:4px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;width:60px;margin-left:auto;}
+.rank-bar-fill{height:100%;border-radius:2px;background:var(--blue);transition:width .8s ease;}
+
+/* TABLE */
+.table-wrap{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem;overflow-x:auto;}
+.sdr-table{width:100%;border-collapse:collapse;font-size:13px;}
+.sdr-table th{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:6px 12px;border-bottom:1px solid var(--border);}
+.sdr-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;}
+.sdr-table tr:last-child td{border-bottom:none;}
+.sdr-table tr:hover td{background:var(--surface2);}
+.pbar{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;min-width:60px;}
+.pbar-fill{height:100%;border-radius:2px;transition:width .8s;}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.04em;}
+.bg{background:var(--green-dim);color:var(--green);}
+.ba{background:var(--amber-dim);color:var(--amber);}
+.br{background:var(--red-dim);color:var(--red);}
+.bb{background:var(--blue-dim);color:var(--blue);}
+
+/* ALERTS */
+.alerts{margin-bottom:1.5rem;display:none;}
+.alert-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--rs);font-size:13px;margin-bottom:6px;border:1px solid;}
+.alert-red{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.2);}
+.alert-amber{background:var(--amber-dim);color:var(--amber);border-color:rgba(245,158,11,.2);}
+.alert-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+/* FILTERS */
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.fbtn{padding:5px 12px;border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text2);background:transparent;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
+.fbtn:hover{border-color:var(--blue);color:var(--blue);}
+.fbtn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+/* LOADER */
+.loader-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999;}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loader-txt{font-size:14px;color:var(--text2);}
+
+/* COLORS */
+.c1{background:#1a2a5a;color:#4f8ef7;}
+.c2{background:#1a3a2a;color:#22c55e;}
+.c3{background:#2a1a3a;color:#a855f7;}
+.c4{background:#2a2a1a;color:#eab308;}
+.c5{background:#2a1a1a;color:#ef4444;}
+.c6{background:#1a2a3a;color:#06b6d4;}
+.c7{background:#2a1a2a;color:#ec4899;}
+.c8{background:#1a3a3a;color:#14b8a6;}
+
+@media(max-width:900px){
+  .metrics-grid{grid-template-columns:repeat(2,1fr);}
+  .charts-row,.rank-grid{grid-template-columns:1fr;}
+  .dash{padding:1rem;}
+  .header{padding:1rem;}
+}
+@media print{
+  .header .period-btns,.filter-row{display:none!important;}
+  body{background:#fff;color:#000;}
+}
+</style>
+</head>
+<body>
+
+<div class="loader-overlay" id="loader">
+  <div class="spinner"></div>
+  <div class="loader-txt" id="loader-txt">Conectando ao Pipedrive...</div>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="live-dot"></div>
+    <div class="logo">Podium Educação</div>
+    <div>
+      <div class="header-title">Dashboard SDRs</div>
+      <div class="header-sub" id="dash-sub">Carregando...</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div class="period-btns">
+      <button class="pbtn active" id="p30" onclick="setPeriod(30)">30 dias</button>
+      <button class="pbtn" id="p15" onclick="setPeriod(15)">15 dias</button>
+      <button class="pbtn" id="p7" onclick="setPeriod(7)">7 dias</button>
+    </div>
+    <button class="pbtn" onclick="load()">↺ Atualizar</button>
+    <button class="pbtn" onclick="window.print()">↓ PDF</button>
+    <div class="update-info" id="update-info"></div>
+  </div>
+</div>
+
+<div class="dash">
+  <div class="alerts" id="alerts"></div>
+
+  <div class="slbl">visão geral</div>
+  <div class="metrics-grid" id="metrics"></div>
+
+  <div class="charts-row">
+    <div class="cc">
+      <div class="slbl">agendamentos vs meta (80)</div>
+      <div style="position:relative;height:240px;"><canvas id="agendChart"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="slbl">taxa de show — meta 65%</div>
+      <div style="position:relative;height:240px;"><canvas id="showChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="rank-grid">
+    <div class="cc">
+      <div class="slbl">ranking — agendamentos</div>
+      <div class="rank-list" id="rank-agend"></div>
+    </div>
+    <div class="cc">
+      <div class="slbl">ranking — show rate</div>
+      <div class="rank-list" id="rank-show"></div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="slbl">detalhamento por sdr</div>
+    <div class="filter-row" id="filters"></div>
+    <div id="table-wrap"></div>
+  </div>
+</div>
+
+<script>
+const META_AGEND = 80, META_SHOW = 65;
+const COLORS = ['c1','c2','c3','c4','c5','c6','c7','c8'];
+let RAW = [], PERIOD = 30, FILTER = 'todos';
+let chartA = null, chartS = null;
+
+function initials(name) {
+  return name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+}
+
+async function load() {
+  document.getElementById('loader').style.display = 'flex';
+  document.getElementById('loader-txt').textContent = 'Buscando atividades...';
+  try {
+    const r = await fetch(`/api/sdrs?days=${PERIOD}`);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    RAW = d.sdrs;
+    document.getElementById('dash-sub').textContent = `${d.total_acts} atividades processadas`;
+    document.getElementById('update-info').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+    render();
+  } catch(e) {
+    document.getElementById('loader-txt').textContent = 'Erro: ' + e.message;
+    return;
+  }
+  document.getElementById('loader').style.display = 'none';
+}
+
+function setPeriod(d) {
+  PERIOD = d;
+  ['p7','p15','p30'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById('p'+d).classList.add('active');
+  load();
+}
+
+function getFiltered() { return FILTER === 'todos' ? RAW : RAW.filter(s => s.name === FILTER); }
+
+function render() {
+  buildFilters();
+  renderAlerts();
+  renderMetrics();
+  renderCharts();
+  renderRankings();
+  renderTable();
+}
+
+function buildFilters() {
+  const btns = [{label:'Todos', val:'todos'}, ...RAW.map(s => ({label: s.name.split(' ')[0], val: s.name}))];
+  document.getElementById('filters').innerHTML = btns.map(b =>
+    `<button class="fbtn${FILTER===b.val?' active':''}" onclick="setFilter('${b.val}')">${b.label}</button>`
+  ).join('');
+}
+
+function setFilter(v) { FILTER = v; render(); }
+
+function renderAlerts() {
+  const alerts = [];
+  RAW.forEach(s => {
+    const pct  = Math.round(s.agendados / META_AGEND * 100);
+    const show = s.agendados > 0 ? Math.round(s.realizados / s.agendados * 100) : 0;
+    if (pct < 50)   alerts.push({type:'red',   msg:`${s.name} — ${s.agendados} agendamentos (${pct}% da meta)`});
+    else if(pct<75) alerts.push({type:'amber', msg:`${s.name} em atenção — ${s.agendados}/${META_AGEND} (${pct}%)`});
+    if (s.agendados >= 5 && show < META_SHOW)
+      alerts.push({type:'red', msg:`${s.name} — show rate em ${show}% (meta: ${META_SHOW}%)`});
+  });
+  const el = document.getElementById('alerts');
+  if (!alerts.length) { el.style.display='none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = '<div class="slbl">alertas</div>' + alerts.slice(0,6).map(a =>
+    `<div class="alert-item alert-${a.type}"><div class="alert-dot"></div><span>${a.msg}</span></div>`
+  ).join('');
+}
+
+function renderMetrics() {
+  const d = getFiltered();
+  const totA = d.reduce((s,r)=>s+r.agendados,0);
+  const totR = d.reduce((s,r)=>s+r.realizados,0);
+  const totN = d.reduce((s,r)=>s+r.noshows,0);
+  const totC = d.reduce((s,r)=>s+r.cancelados,0);
+  const totV = d.reduce((s,r)=>s+r.vendas,0);
+  const metaT = META_AGEND * d.length;
+  const taxaShow = totA > 0 ? Math.round(totR/totA*100) : 0;
+  const pctMeta  = metaT > 0 ? Math.min(100, Math.round(totA/metaT*100)) : 0;
+  const cMeta = pctMeta  >= 75 ? 'var(--green)' : pctMeta  >= 50 ? 'var(--amber)' : 'var(--red)';
+  const cShow = taxaShow >= META_SHOW ? 'var(--green)' : taxaShow >= 50 ? 'var(--amber)' : 'var(--red)';
+
+  document.getElementById('metrics').innerHTML = [
+    {lbl:'Agendamentos',        val:totA, sub:`Meta ${metaT} · ${pctMeta}%`, pct:pctMeta,  color:cMeta},
+    {lbl:'Reuniões realizadas', val:totR, sub:`Show rate ${taxaShow}%`,       pct:taxaShow, color:cShow},
+    {lbl:'No-shows',            val:totN, sub:'não compareceram',             pct:null},
+    {lbl:'Cancelamentos',       val:totC, sub:'cancelaram',                   pct:null},
+    {lbl:'Vendas pelo SDR',     val:totV, sub:'fechamentos diretos',          pct:null},
+  ].map(c => `
+    <div class="mc">
+      <div class="mc-lbl">${c.lbl}</div>
+      <div class="mc-val">${c.val}</div>
+      <div class="mc-sub">${c.sub}</div>
+      ${c.pct!==null?`<div class="mc-prog"><div class="mc-prog-fill" style="width:${c.pct}%;background:${c.color};"></div></div>`:''}
+    </div>`).join('');
+}
+
+function renderCharts() {
+  const d = getFiltered();
+  if (chartA) chartA.destroy();
+  if (chartS) chartS.destroy();
+  const labels = d.map(s => s.name.split(' ')[0]);
+
+  chartA = new Chart(document.getElementById('agendChart').getContext('2d'), {
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Agendados', data:d.map(s=>s.agendados), backgroundColor:'#4f8ef7', borderRadius:4},
+      {label:'Meta',      data:d.map(()=>META_AGEND),  backgroundColor:'rgba(79,142,247,0.15)', borderRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{color:'#555570',font:{size:11}}},
+              y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555570',font:{size:11}}}}}
+  });
+
+  const shows = d.map(s => s.agendados>0 ? Math.round(s.realizados/s.agendados*100) : 0);
+  const colors = shows.map(v => v>=META_SHOW?'#22c55e':v>=50?'#f59e0b':'#ef4444');
+  chartS = new Chart(document.getElementById('showChart').getContext('2d'), {
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Show %', data:shows, backgroundColor:colors, borderRadius:4},
+      {label:'Meta',   data:d.map(()=>META_SHOW), type:'line',
+       borderColor:'rgba(255,255,255,0.2)', borderWidth:1.5, borderDash:[4,3], pointRadius:0, fill:false},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{color:'#555570',font:{size:11}}},
+              y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555570',font:{size:11},callback:v=>v+'%'},max:100,min:0}}}
+  });
+}
+
+function renderRankings() {
+  const byAgend = [...RAW].sort((a,b) => b.agendados - a.agendados);
+  const byShow  = [...RAW].sort((a,b) => {
+    const sa = a.agendados>0?a.realizados/a.agendados:0;
+    const sb = b.agendados>0?b.realizados/b.agendados:0;
+    return sb - sa;
+  });
+  const maxA = byAgend[0]?.agendados || 1;
+  const medals = ['gold','silver','bronze'];
+
+  document.getElementById('rank-agend').innerHTML = byAgend.map((s,i) => {
+    const ci = COLORS[RAW.indexOf(s) % COLORS.length];
+    return `<div class="rank-item">
+      <span class="rank-num ${medals[i]||''}">${i+1}</span>
+      <div class="rank-avatar ${ci}">${initials(s.name)}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="rank-name">${s.name}</div>
+        <div class="rank-sub">${s.agendados} agendamentos</div>
+      </div>
+      <div class="rank-right">
+        <div class="rank-val">${s.agendados}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${Math.round(s.agendados/maxA*100)}%;"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rank-show').innerHTML = byShow.map((s,i) => {
+    const show = s.agendados > 0 ? Math.round(s.realizados/s.agendados*100) : 0;
+    const ci = COLORS[RAW.indexOf(s) % COLORS.length];
+    const c = show>=META_SHOW?'var(--green)':show>=50?'var(--amber)':'var(--red)';
+    return `<div class="rank-item">
+      <span class="rank-num ${medals[i]||''}">${i+1}</span>
+      <div class="rank-avatar ${ci}">${initials(s.name)}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="rank-name">${s.name}</div>
+        <div class="rank-sub">${s.realizados} realizadas de ${s.agendados}</div>
+      </div>
+      <div class="rank-right">
+        <div class="rank-val" style="color:${c};">${show}%</div>
+        <div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${show}%;background:${c};"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTable() {
+  const d = getFiltered();
+  const rows = d.map((s,i) => {
+    const show    = s.agendados>0 ? Math.round(s.realizados/s.agendados*100) : 0;
+    const pctMeta = Math.min(100, Math.round(s.agendados/META_AGEND*100));
+    const mb = pctMeta>=100?'bg':pctMeta>=75?'bb':pctMeta>=50?'ba':'br';
+    const ml = pctMeta>=100?'Meta':pctMeta>=75?'Caminho':pctMeta>=50?'Atenção':'Crítico';
+    const sb = show>=META_SHOW?'bg':show>=50?'ba':'br';
+    const bc = pctMeta>=75?'#4f8ef7':pctMeta>=50?'#f59e0b':'#ef4444';
+    const sc = show>=META_SHOW?'#22c55e':show>=50?'#f59e0b':'#ef4444';
+    const ci = COLORS[RAW.indexOf(s) % COLORS.length];
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="rank-avatar ${ci}" style="width:26px;height:26px;font-size:9px;">${initials(s.name)}</div>
+          <span style="font-weight:600;">${s.name}</span>
+        </div>
+      </td>
+      <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;">${s.agendados}</td>
+      <td><div style="display:flex;align-items:center;gap:8px;">
+        <div class="pbar" style="flex:1;"><div class="pbar-fill" style="width:${pctMeta}%;background:${bc};"></div></div>
+        <span style="font-size:11px;color:var(--text2);min-width:32px;">${pctMeta}%</span>
+      </div></td>
+      <td style="text-align:center;">${s.realizados}</td>
+      <td><div style="display:flex;align-items:center;gap:8px;">
+        <div class="pbar" style="width:60px;"><div class="pbar-fill" style="width:${show}%;background:${sc};"></div></div>
+        <span style="font-size:11px;color:var(--text2);">${show}%</span>
+      </div></td>
+      <td style="text-align:center;">${s.noshows}</td>
+      <td style="text-align:center;">${s.cancelados}</td>
+      <td style="text-align:center;">${s.vendas}</td>
+      <td style="text-align:center;"><span class="badge ${mb}">${ml}</span></td>
+      <td style="text-align:center;"><span class="badge ${sb}">${show}%</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('table-wrap').innerHTML = `
+    <table class="sdr-table">
+      <thead><tr>
+        <th>SDR</th>
+        <th style="text-align:center;">Agendamentos</th>
+        <th>vs Meta</th>
+        <th style="text-align:center;">Realizados</th>
+        <th>Show rate</th>
+        <th style="text-align:center;">No-show</th>
+        <th style="text-align:center;">Cancelados</th>
+        <th style="text-align:center;">Vendas</th>
+        <th style="text-align:center;">Meta</th>
+        <th style="text-align:center;">Show</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// Auto-refresh a cada 5 minutos
+setInterval(load, 5 * 60 * 1000);
+load();
+</script>
+</body>
+</html>
